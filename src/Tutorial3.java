@@ -98,8 +98,6 @@ public class Tutorial3 {
                 "              </AgentSection>\n" +
                 "            </Mission>";
 
-        System.out.println(missionXML);
-
         AgentHost agent = new AgentHost();
         try {
             StringVector args = new StringVector();
