@@ -1,7 +1,5 @@
 import com.microsoft.msr.malmo.*;
 
-import java.util.StringJoiner;
-
 /**
  * A Java translation of the Python "tutorial_1" example for the Malmo platform made by Microsoft
  *
