@@ -16,6 +16,9 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * A "Cliff-walking" example using tabular Q learning
  * This class is based on the Python example: tabular_q_learning.py
+ *
+ * TODO Find what's causing Java crashes when trying to get arguments from agentHost
+ * TODO Finish parts of this class
  */
 public class TabularQLearning {
 
@@ -71,7 +74,7 @@ public class TabularQLearning {
         /**
          * The action we previously
          */
-        private String previousAction = null;
+        private int previousAction = 1;
 
         /**
          * The state we previousely had
@@ -106,8 +109,8 @@ public class TabularQLearning {
             double currentReward = 0;
             double tol = 0.01;
 
-            this.previousAction = null;
-            this.previousAction = null;
+            this.previousState = null;
+            //this.previousAction = null;
 
             WorldState worldState = agentHost.peekWorldState();
             while(worldState.getIsMissionRunning() && !hasObservations(worldState))
@@ -129,7 +132,6 @@ public class TabularQLearning {
                 return 0;
             }
 
-            System.out.println("observation len: "+worldState.getObservations().size());
             JsonObject observation = (JsonObject) new JsonParser().parse(worldState.getObservations().get(0).getText());
             if(!observation.has("XPos") || !observation.has("ZPos")) {
                 System.err.println("Received invalid observations - no 'XPos' or 'ZPos' found");
@@ -178,6 +180,7 @@ public class TabularQLearning {
                 for(int i=0; i<worldState.getErrors().size(); i++)
                     System.err.println(worldState.getErrors().get(i));
 
+                currentReward = 0;
                 for(int i=0; i<worldState.getRewards().size(); i++)
                     currentReward += worldState.getRewards().get(i).getValue();
 
@@ -188,7 +191,7 @@ public class TabularQLearning {
                     }
                     long framesAfterGet = worldState.getVideoFrames().size();
                     if(framesAfterGet >= framesBeforeGet) {
-                        System.err.println("Fewer frames after getWorldState()?!");
+                        //System.err.println("Fewer frames after getWorldState()?!");
                         //return 0;
                     }
 
@@ -206,12 +209,11 @@ public class TabularQLearning {
                 }
             }
 
-            System.out.println("Final reward: "+currentReward);
             totalReward += currentReward;
 
-            if(training && previousState != null && previousAction != null) {
-                double oldQ = qTable.get(previousState)[getAction(previousAction)];
-                qTable.get(previousState)[getAction(previousAction)] = oldQ + alpha * (currentReward - oldQ);
+            if(training && previousState != null) {
+                double oldQ = qTable.get(previousState)[previousAction];
+                qTable.get(previousState)[previousAction] = oldQ + alpha * (currentReward - oldQ);
             }
 
             drawQ(0, 0);
@@ -242,9 +244,9 @@ public class TabularQLearning {
                 qTable.put(currentState, new double[actions.length]);
 
             // TD(0) algorithm as stated in Barto and Sutton's introduction to Reinforcement Learning 2016 version 2 draft
-            if(training && previousState != null && previousAction != null) {
-                double oldQ = qTable.get(previousState)[getAction(previousAction)];
-                qTable.get(previousState)[getAction(previousAction)] = oldQ + alpha * (currentReward
+            if(training && previousState != null) {
+                double oldQ = qTable.get(previousState)[previousAction];
+                qTable.get(previousState)[previousAction] = oldQ + alpha * (currentReward
                         + gamma * getHighest(qTable.get(currentState)) - oldQ);
             }
 
@@ -259,18 +261,18 @@ public class TabularQLearning {
                 double max = getHighest(qTable.get(currentState));
                 List<Integer> list = new ArrayList<>();
                 for(int x=0; x<actions.length; x++) {
-                    double dbl =  qTable.get(currentState)[x];
                     if (qTable.get(currentState)[x] == max)
                         list.add(x);
                 }
                 a = list.get(ThreadLocalRandom.current().nextInt(0, list.size()));
-                System.out.println("Taking q action: "+actions[a]+" (Highest reward: "+max+")");
+                System.out.println("Taking q action: "+actions[a]);
             }
 
             // Send the command
             agentHost.sendCommand(actions[a]);
             previousState = currentState;
-            previousAction = actions[a];
+            //previousAction = actions[a];
+            previousAction = a;
 
             return currentReward;
         }
@@ -351,25 +353,11 @@ public class TabularQLearning {
         }
 
         /**
-         * Converts the action into the index based on the action array
-         * @param action The action to look up
-         * @return The index of the action
-         */
-        protected int getAction(String action) {
-            for(int i=0; i<actions.length; i++) {
-                if(actions[i].equals(action))
-                    return i;
-            }
-            System.err.println("Action index not found for action: "+action);
-            return 0;
-        }
-
-        /**
          * Returns the highest value in the array
          * @param arr The array to scan
          * @return The highest value in the array
          */
-        protected double getHighest(double[] arr) {
+        public static double getHighest(double[] arr) {
             double val = Integer.MIN_VALUE;
             for(int i=0; i<arr.length; i++) {
                 if(arr[i]>val) {
