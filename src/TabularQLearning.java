@@ -72,7 +72,7 @@ public class TabularQLearning {
         private HashMap<String, double[]> qTable = new HashMap<>();
 
         /**
-         * The action we previously
+         * The action we previously took
          */
         private int previousAction = 1;
 
@@ -107,10 +107,8 @@ public class TabularQLearning {
         public double run(AgentHost agentHost) {
             double totalReward = 0;
             double currentReward = 0;
-            double tol = 0.01;
 
             this.previousState = null;
-            //this.previousAction = null;
 
             WorldState worldState = agentHost.peekWorldState();
             while(worldState.getIsMissionRunning() && !hasObservations(worldState))
@@ -143,9 +141,6 @@ public class TabularQLearning {
 
             totalReward += act(worldState, agentHost, currentReward);
 
-            boolean requireMove = true;
-            boolean checkExpectedPosition = true;
-
             while(worldState.getIsMissionRunning()) {
                 System.out.println("Waiting for data...");
                 while(true) {
@@ -155,26 +150,13 @@ public class TabularQLearning {
                         break;
                     }
                     if(worldState.getRewards().size() > 0 && hasObservations(worldState)) {
-                        observation = (JsonObject) new JsonParser().parse(worldState.getObservations().get(0).getText());
-                        int currentX = observation.get("XPos").getAsInt();
-                        int currentZ = observation.get("ZPos").getAsInt();
-                        if(requireMove) {
-                            if(Math.hypot(currentX - previousX, currentZ - previousZ) > tol) {
-                                System.out.println("received.");
-                                break;
-                            }
-                        } else {
-                            System.out.println("received.");
-                            break;
-                        }
+                        break;
                     }
                 }
 
                 framesSeen = worldState.getNumberOfVideoFramesSinceLastState();
                 while(worldState.getIsMissionRunning() && worldState.getNumberOfVideoFramesSinceLastState() == framesSeen)
                     worldState = agentHost.peekWorldState();
-
-                long framesBeforeGet = worldState.getVideoFrames().size();
 
                 worldState = agentHost.getWorldState();
                 for(int i=0; i<worldState.getErrors().size(); i++)
@@ -185,26 +167,11 @@ public class TabularQLearning {
                     currentReward += worldState.getRewards().get(i).getValue();
 
                 if(worldState.getIsMissionRunning()) {
-                    if(worldState.getVideoFrames().size() <= 0) {
-                        System.err.println("We haven't received any video frames!");
-                        return 0;
-                    }
-                    long framesAfterGet = worldState.getVideoFrames().size();
-                    if(framesAfterGet >= framesBeforeGet) {
-                        //System.err.println("Fewer frames after getWorldState()?!");
-                        //return 0;
-                    }
-
                     observation = (JsonObject) new JsonParser().parse(worldState.getObservations().get(0).getText());
                     int currentX = observation.get("XPos").getAsInt();
                     int currentZ = observation.get("ZPos").getAsInt();
                     System.out.format("New position from observation %d, %d after action '%s'\n", currentX, currentZ, previousAction);
-                    if(checkExpectedPosition) {
-                        // TODO make this
-                    }
 
-                    previousX = currentX;
-                    previousZ = currentZ;
                     totalReward += act(worldState, agentHost, currentReward);
                 }
             }
@@ -271,7 +238,6 @@ public class TabularQLearning {
             // Send the command
             agentHost.sendCommand(actions[a]);
             previousState = currentState;
-            //previousAction = actions[a];
             previousAction = a;
 
             return currentReward;
